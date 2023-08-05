@@ -50,12 +50,18 @@ impl MD5Reader<'_> {
                 self.length += count;
                 if count < BUFFER_SIZE_BYTES {
                     let pad = Self::padding(self.length, &mut byte_buf, count);
+                    if let Some(pb) = pad {
+                        self.state = MD5ReaderState::Padding(pb);
+                    } else {
+                        self.state = MD5ReaderState::Done;
+                    }
                 }
                 Self::bytes_to_words(&byte_buf, buf);
-                Ok(count)
+                Ok(BUFFER_SIZE_BYTES)
             }
             MD5ReaderState::Padding(pad_buf) => {
                 Self::bytes_to_words(&pad_buf, buf);
+                self.state = MD5ReaderState::Done;
                 Ok(pad_buf.len())
             }
             MD5ReaderState::Done => Ok(0),
@@ -63,7 +69,7 @@ impl MD5Reader<'_> {
     }
 
     fn padding(len: usize, buf: &mut MD5ByteBuffer, offset: usize) -> Option<MD5ByteBuffer> {
-        let additonal_padding = (56 + 64 - ((len + 1) % 64)) % 64; // how many more pading bytes needed
+        let additonal_padding = (56 + 64 - (len % 64)) % 64 + 8; // how many more pading bytes needed
         let mut fill_count = 0;
         let bts = len.to_le_bytes();
 
@@ -80,7 +86,7 @@ impl MD5Reader<'_> {
         };
 
         let fill_to = min(offset + additonal_padding, BUFFER_SIZE_BYTES);
-        println!("{} {} {}", offset, additonal_padding, fill_to);
+        //println!("{} {} {}", offset, additonal_padding, fill_to);
         for i in offset..fill_to {
             buf[i] = pad_value(fill_count);
             fill_count += 1;
@@ -111,14 +117,64 @@ impl MD5Reader<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::md5::{self, MD5Reader, MD5WordBuffer, BUFFER_SIZE_WORDS};
+    use std::io::Read;
+
+    use crate::md5::{self, MD5Reader, MD5WordBuffer, BUFFER_SIZE_BYTES, BUFFER_SIZE_WORDS};
+
+    fn padding_tst(msg: &mut impl Read, expected: Vec<MD5WordBuffer>) {
+        let mut reader = MD5Reader::new(msg);
+        let mut buf: MD5WordBuffer = [0; BUFFER_SIZE_WORDS];
+
+        for exp in expected {
+            let res = reader.readBlock(&mut buf);
+            println!("{:x?}", buf);
+            println!("{:x?}", exp);
+            println!("{:x?}", res);
+            assert!(match res {
+                Ok(BUFFER_SIZE_BYTES) => true,
+                _ => false,
+            });
+            assert!(buf == exp);
+        }
+        let res = reader.readBlock(&mut buf);
+        println!("{:x?}", buf);
+        println!("{:x?}", res);
+        assert!(match res {
+            Ok(0) => true,
+            _ => false,
+        });
+    }
 
     #[test]
-    fn it_works() {
+    fn padding_simple() {
         let mut binding = "ABCDEF".as_bytes();
-        let mut reader = MD5Reader::new(&mut binding);
-        let mut buf: MD5WordBuffer = [0; BUFFER_SIZE_WORDS];
-        reader.readBlock(&mut buf);
-        println!("{:x?}", buf)
+        padding_tst(
+            &mut binding,
+            vec![[
+                0x44434241, 0x00804645, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x06, 0,
+            ]],
+        )
+    }
+
+    #[test]
+    fn padding_empty() {
+        let mut binding = "".as_bytes();
+        padding_tst(
+            &mut binding,
+            vec![[0x00000080, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+        )
+    }
+
+    #[test]
+    fn padding_overflow() {
+        let mut binding = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD".as_bytes();
+        padding_tst(
+            &mut binding,
+            vec![[
+                0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444,
+                0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444, 0x44444444,
+                0x00000080, 0x00,
+            ]],
+        )
     }
 }
