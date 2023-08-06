@@ -1,7 +1,9 @@
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 use structopt::StructOpt;
+
+use crate::md5::{MD5Machine, MD5Reader};
 
 pub mod md5;
 
@@ -20,7 +22,7 @@ struct Opt {
     files: Vec<PathBuf>,
 }
 
-fn get_reader<R>(file_name: &PathBuf) -> io::Result<Box<dyn BufRead>> {
+fn get_reader(file_name: &PathBuf) -> io::Result<Box<dyn BufRead>> {
     match file_name.to_str() {
         None | Some("-") => Ok(Box::new(BufReader::new(io::stdin()))),
         _ => match fs::File::open(file_name) {
@@ -42,13 +44,16 @@ fn main() {
 
     for file in files {
         //let mut buf: [u8; 1] = [0];
-        //let mut buf = Vec::new();
-        /*
+
         if let Ok(mut reader) = get_reader(&file) {
-            reader.read_to_end(&mut buf);
-            print!("{:?}", buf);
+            let mut machine = MD5Machine::new(MD5Reader::new(&mut reader));
+            let sum = machine.sum();
+            for b in sum {
+                print!("{:02x}", b)
+            }
+            println!("  {}", file.to_str().unwrap());
         } else {
             eprintln!("Cannot open file {:?}", file);
-        }*/
+        }
     }
 }
