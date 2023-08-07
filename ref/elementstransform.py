@@ -5,6 +5,9 @@ import fileinput
 #to
 #Self::ff (&mut a, b, c, d, x[ 0], 7, 0xd76aa478); /* 1 */
 
+#Self::op (&mut a, b, Self::aux_f(b, c, d), x[ 0], 7, 0xd76aa478); /* 1 */
+
+
 S = [0] * 45
 
 S[11]=7
@@ -25,8 +28,10 @@ S[43]=15
 S[44]=21
 
 for line in fileinput.input():
-    #print(line)
-    m = re.search(r'\s*(\w\w \()(.*)S(\d\d)(.*)', line)
-    #import pdb;pdb.set_trace()
+    #FF (a, b, c, d, x[ 0], S11, 0xd76aa478); /* 1 */
+    m = re.search(r'\s*(\w)\w \((.*)S(\d\d)(.*)', line)
     if m:
-        print("Self::" + m.group(1).lower() + "&mut " + m.group(2) +  str(S[int(m.group(3))]) + m.group(4) )
+        fun = m.group(1).lower()
+        va,vb,vc,vd,vx,_ = [s.strip() for s in m.group(2).split(",")]
+        #Self::op (&mut a, b, Self::aux_f(b, c, d), x[ 0], 7, 0xd76aa478); /* 1 */
+        print(f'Self::op (&mut {va}, {vb}, Self::aux_{fun}({vb}, {vc}, {vd}), {vx}, {str(S[int(m.group(3))]) + m.group(4)}' )
