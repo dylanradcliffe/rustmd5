@@ -22,11 +22,17 @@ struct Opt {
     files: Vec<PathBuf>,
 }
 
+const BUFFERED_READER_CAP: usize = 32768; // 32kB
+
 fn get_reader(file_name: &PathBuf) -> io::Result<Box<dyn BufRead>> {
     match file_name.to_str() {
-        None | Some("-") => Ok(Box::new(BufReader::new(io::stdin()))),
+        //    let reader = BufReader::with_capacity(10, f);
+        None | Some("-") => Ok(Box::new(BufReader::with_capacity(
+            BUFFERED_READER_CAP,
+            io::stdin(),
+        ))),
         _ => match fs::File::open(file_name) {
-            Ok(fh) => Ok(Box::new(BufReader::new(fh))),
+            Ok(fh) => Ok(Box::new(BufReader::with_capacity(BUFFERED_READER_CAP, fh))),
             Err(e) => Err(e),
         },
     }
