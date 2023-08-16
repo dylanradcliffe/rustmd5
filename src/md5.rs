@@ -82,15 +82,16 @@ impl MD5Reader<'_> {
 
         let fill_to = min(offset + additonal_padding, BUFFER_SIZE_BYTES);
         //println!("offset={} ap={} ft={}", offset, additonal_padding, fill_to);
-        for i in offset..fill_to {
-            buf[i] = pad_value(fill_count);
+
+        for b in &mut buf[offset..fill_to] {
+            *b = pad_value(fill_count);
             fill_count += 1;
         }
 
         if fill_to < offset + additonal_padding {
             let mut pbuf: MD5ByteBuffer = [0; BUFFER_SIZE_BYTES];
-            for i in 0..(offset + additonal_padding - fill_to) {
-                pbuf[i] = pad_value(fill_count);
+            for pb in &mut pbuf[0..(offset + additonal_padding - fill_to)] {
+                *pb = pad_value(fill_count);
                 fill_count += 1;
             }
             Some(pbuf)
@@ -102,7 +103,7 @@ impl MD5Reader<'_> {
     fn bytes_to_words(bb: &MD5ByteBuffer, wb: &mut MD5WordBuffer) {
         for i in 0..wb.len() {
             let bbs = &bb[i * BUFFER_WORD_SIZE..(i + 1) * BUFFER_WORD_SIZE];
-            wb[i] = ((bbs[0] as u32) << 0)
+            wb[i] = (bbs[0] as u32)
                 | ((bbs[1] as u32) << 8)
                 | ((bbs[2] as u32) << 16)
                 | ((bbs[3] as u32) << 24)

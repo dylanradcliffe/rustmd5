@@ -44,7 +44,7 @@ fn main() {
 
     let mut files = opt.files;
 
-    if files.len() == 0 {
+    if files.is_empty() {
         files.push(PathBuf::from("-"));
     }
 
